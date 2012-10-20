@@ -48,6 +48,7 @@ input.equation, button.equation {
 }
 #linkBox {
 	width: 400px;
+	font-size: inherit;
 }
 </style>
 
@@ -408,6 +409,11 @@ $('document').ready (function() {
 		$('canvas.main').mousedown (function () {
 			$('#linkBox').blur();
 		});
+		$('#linkBox').keydown (function (e) {
+			if (e.which == 27) {
+				$(this).blur();
+			}
+		})
 		$('#createLink').addClass ('hidden');
 		$('#linkBox').val (getBaseUrl() + '?exp=' + escape(exp));
 		$('#linkBox').removeClass ('hidden');
@@ -443,7 +449,7 @@ $('document').ready (function() {
 		<button id="graphCurrentEquation" class="equation">Graph</button>
 		<button id="resetView" class="equation">Reset View</button>
 		<a href="javascript:void(0)" id="createLink">Link</a>
-		<input type="text" readonly="readonly" class="hidden" id="linkBox" value="blah" />
+		<input type="text" readonly="readonly" class="hidden" id="linkBox" value="" />
 	</form>
 </div>
 <div class="canvasWrapper">
