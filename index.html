@@ -422,6 +422,9 @@ $('document').ready (function() {
 	});
 	
 	$('#resetView').click (graph.resetView);
+	$('#graphCurrentEquation').click (function () {
+		$('form.equation').submit();
+	});
 	$('form.equation').submit (function () {
 		graph.setExpression ($('#equation').val());
 		return false;
@@ -437,7 +440,7 @@ $('document').ready (function() {
 	<form class="equation">
 		<label class="equation" for="equation">y = </label>
 		<input class="equation" id="equation" value="sqrt(64-x*x)*sin(2*x)" />
-		<input type="submit" class="equation" value="Graph" />
+		<button id="graphCurrentEquation" class="equation">Graph</button>
 		<button id="resetView" class="equation">Reset View</button>
 		<a href="javascript:void(0)" id="createLink">Link</a>
 		<input type="text" readonly="readonly" class="hidden" id="linkBox" value="blah" />
