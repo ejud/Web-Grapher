@@ -79,7 +79,6 @@ function getBaseUrl() {
 
 function InteractiveGraph (elem, initialSize) {
 	var canvas = $(elem);
-	var parsedExpression = null;
 	var vBounds = null;
 	var lastMousePoint = null;
 	
@@ -101,15 +100,11 @@ function InteractiveGraph (elem, initialSize) {
 		};
 	};
 
-	var errorHandlers = [];
-	var error = function (err) {
-		if (!err) err = null;
-		for (var i = 0; i < errorHandlers.length; i++) {
-			errorHandlers[i](err);
+	var evaluatorProvider = null;
+	this.evaluatorProvider = function(provider) {
+		if (provider !== undefined) {
+			evaluatorProvider = provider;
 		}
-	};
-	this.error = function(f) {
-		errorHandlers.push (f);
 	};
 	
 	var draw = function() {
@@ -197,22 +192,21 @@ function InteractiveGraph (elem, initialSize) {
 		context.stroke();
 		context.closePath();
 		
-		if (!parsedExpression) return;
+		if (!evaluatorProvider) return;
+		var evaluator = evaluatorProvider();
+
+		if (!evaluator) return;
 		
 		// Graph itself
 		context.strokeStyle = '#0000ff';
 		context.lineWidth = 1.0;
 		context.beginPath();
 		
-		var evalParam = evalConstants;
 		var canvasWidth = canvas.attr ('width');
 		for (var i = 0 ; i < canvasWidth; i++) {
 			var vp = deprojectPoint (makePt (i, 0));
-			try {
-				evalParam.x = vp.x;
-				vp.y = parsedExpression.evaluate (evalParam);
-			} catch (e) {
-				error ('Evaluation Error: ' + e.message);
+			vp.y = evaluator(vp.x);
+			if (vp.y === null) {
 				break;
 			}
 			
@@ -231,10 +225,9 @@ function InteractiveGraph (elem, initialSize) {
 		if (lastMousePoint) {
 			var vMousePt = deprojectPoint (lastMousePoint);
 			var vGraphPt = vMousePt;
-			evalParam.x = vMousePt.x;
 			try {
-				vGraphPt.y = parsedExpression.evaluate (evalParam);
-				if (!vGraphPt.y) return;
+				vGraphPt.y = evaluator (vMousePt.x);
+				if (vGraphPt.y === null || isNaN(vGraphPt.y)) return;
 			} catch (e) {
 				return;
 			}
@@ -258,19 +251,11 @@ function InteractiveGraph (elem, initialSize) {
 			context.fillText ('y = ' + vGraphPt.y, lastMousePoint.x + 5, lastMousePoint.y - 10);
 		}
 	};
-	
-	this.setExpression = function(exp) {
-		try {
-			error();
-			var parser = new Parser();
-			parsedExpression = parser.parse (exp);
-		} catch (e) {
-			error ('Parse Error: ' + e.message);
-			parsedExpression = null;
-		}
+
+	this.redraw = function() {
 		draw();
-	};
-	
+	}
+
 	var setBounds = function (top, bottom, left, right) {
 		vBounds = {
 			top: top,
@@ -421,18 +406,57 @@ $('document').ready (function() {
 		$('#linkBox').select();
 	});
 	
+	var parsedExpression = null;
+
 	var graph = new InteractiveGraph ($('canvas.main'), 20);
-	graph.error (function (err) {
+	graph.evaluatorProvider (function () {
+		if (!parsedExpression) {
+			return null;
+		}
+
+		var evalParam = evalConstants;
+		return function(x) {
+			if (!parsedExpression) {
+				return null;
+			}
+
+			try {
+				evalParam.x = x;
+				return parsedExpression.evaluate (evalParam);
+			} catch (e) {
+				reportError('Evaluation Error: ' + e.message);
+
+				// We'll unset the parsed expression now, because it's not really useful.
+				// That way, next time through we won't try to parse it at all.
+				parsedExpression = null;
+				return null;
+			}
+		}
+	})
+	
+	var reportError = function (err) {
 		if (!err) err = '';
 		$('.errorDisplay').text (err);
-	});
-	
+	};
+
 	$('#resetView').click (graph.resetView);
 	$('#graphCurrentEquation').click (function () {
 		$('form.equation').submit();
 	});
 	$('form.equation').submit (function () {
-		graph.setExpression ($('#equation').val());
+		try {
+			reportError('');
+
+			var exp = $('#equation').val();
+			var parser = new Parser();
+			parsedExpression = parser.parse (exp);
+		} catch (e) {
+			reportError ('Parse Error: ' + e.message);
+			parsedExpression = null;
+		}
+
+		graph.redraw();
+
 		return false;
 	}).submit();
 	$('#equation').select();
