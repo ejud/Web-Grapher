@@ -84,7 +84,7 @@ function InteractiveGraph (elem, initialSize) {
 	
 	var makePt = function (x, y) { return { x: x, y: y }; };
 	
-	var s2v = function (p) {
+	var deprojectPoint = function (p) {
 		if (!vBounds) return null;
 		return {
 			x: (p.x * vBounds.width() / canvas.attr('width')) + vBounds.left,
@@ -92,7 +92,7 @@ function InteractiveGraph (elem, initialSize) {
 		};
 	};
 	
-	var v2s = function (p) {
+	var projectPoint = function (p) {
 		if (!vBounds) return null;
 		return {
 			x: (p.x - vBounds.left) * canvas.attr('width') / vBounds.width(),
@@ -122,16 +122,16 @@ function InteractiveGraph (elem, initialSize) {
 		
 		context.beginPath();
 		
-		var p = v2s (makePt (vBounds.left, 0));
+		var p = projectPoint (makePt (vBounds.left, 0));
 		context.moveTo (p.x, p.y);
 		
-		p = v2s (makePt (vBounds.right, 0));
+		p = projectPoint (makePt (vBounds.right, 0));
 		context.lineTo (p.x, p.y);
 		
-		p = v2s (makePt (0, vBounds.top));
+		p = projectPoint (makePt (0, vBounds.top));
 		context.moveTo (p.x, p.y);
 		
-		p = v2s (makePt (0, vBounds.bottom));
+		p = projectPoint (makePt (0, vBounds.bottom));
 		context.lineTo (p.x, p.y);
 		
 		// Tick marks
@@ -157,7 +157,7 @@ function InteractiveGraph (elem, initialSize) {
 			if (i == 0) continue;
 			
 			var y = i * intervalY;
-			p = v2s (makePt (0, y));
+			p = projectPoint (makePt (0, y));
 			if (p.x < 0) p.x = 0;
 			if (p.x > canvas.width()) p.x = canvas.width();
 			
@@ -177,7 +177,7 @@ function InteractiveGraph (elem, initialSize) {
 			if (i == 0) continue;
 			
 			var x = i * intervalX;
-			p = v2s (makePt (x, 0));
+			p = projectPoint (makePt (x, 0));
 			if (p.y < 0) p.y = 0;
 			if (p.y > canvas.height()) p.y = canvas.height();
 			
@@ -206,7 +206,7 @@ function InteractiveGraph (elem, initialSize) {
 		var evalParam = evalConstants;
 		var canvasWidth = canvas.attr ('width');
 		for (var i = 0 ; i < canvasWidth; i++) {
-			var vp = s2v (makePt (i, 0));
+			var vp = deprojectPoint (makePt (i, 0));
 			try {
 				evalParam.x = vp.x;
 				vp.y = parsedExpression.evaluate (evalParam);
@@ -215,7 +215,7 @@ function InteractiveGraph (elem, initialSize) {
 				break;
 			}
 			
-			var sp = v2s (vp);
+			var sp = projectPoint (vp);
 			if (i == 0) {
 				context.moveTo (sp.x, sp.y);
 			} else {
@@ -228,7 +228,7 @@ function InteractiveGraph (elem, initialSize) {
 		
 		// Hover Location
 		if (lastMousePoint) {
-			var vMousePt = s2v (lastMousePoint);
+			var vMousePt = deprojectPoint (lastMousePoint);
 			var vGraphPt = vMousePt;
 			evalParam.x = vMousePt.x;
 			try {
@@ -238,7 +238,7 @@ function InteractiveGraph (elem, initialSize) {
 				return;
 			}
 			
-			var sGraphPt = v2s (vGraphPt);
+			var sGraphPt = projectPoint (vGraphPt);
 			
 			var crosshairSize = 10;
 
@@ -367,13 +367,27 @@ function InteractiveGraph (elem, initialSize) {
 
 		var newWidth = vBounds.width() * factor;
 		var newHeight = vBounds.height() * factor;
-		var centerX = (vBounds.left + vBounds.right) / 2;
-		var centerY = (vBounds.top + vBounds.bottom) / 2;
+
+		var pivot = lastMousePoint ? deprojectPoint(lastMousePoint) : null;
+		if (!pivot) {
+			// Mouse wheel without a hover position? Seems weird, but what the heck.
+			var x = (vBounds.left + vBounds.right) / 2;
+			var y = (vBounds.top + vBounds.bottom) / 2;
+			pivot = makePt(x, y);
+		}
+
+		// We want the zoom operation to "pivot" at the desired point.
+		var newLeft = pivot.x - newWidth * (pivot.x - vBounds.left) / vBounds.width();
+		var newBottom = pivot.y - newHeight * (pivot.y - vBounds.bottom) / vBounds.height();
+
+		var newRight = newLeft + newWidth;
+		var newTop = newBottom + newHeight;
+
 		setBounds (
-			centerY + (newHeight / 2),
-			centerY - (newHeight / 2),
-			centerX - (newWidth / 2),
-			centerX + (newWidth / 2)
+			newTop,
+			newBottom,
+			newLeft,
+			newRight
 		);
 		draw();
 	});
