@@ -13,11 +13,12 @@
 
 <script type="text/javascript">
 
+// Additional constants that will be passed to the parser.
 var evalConstants = {
 	e: 2.71828183
 };
 
-
+// Retrieves name/value pairs from the query string in the URL
 function getUrlVars() {
 	var vars = [], hash;
 	var hashes = window.location.href.slice (window.location.href.indexOf('?') + 1).split('&');
@@ -29,16 +30,23 @@ function getUrlVars() {
 	return vars;
 }
 
+// Retrieves the base URL (the portion before the query string).
 function getBaseUrl() {
 	return window.location.href.split('?')[0];
 };
 
+// Entry point.
 $('document').ready (function() {
+	// If the URL parameters include an expression, set it here.
+	// Otherwise, the default expression specified in the HTML will
+	//  be used.
 	var exp = getUrlVars()['exp'];
 	if (exp) {
 		$('#equation').val (unescape(exp));
 	}
 	
+	// When "Link" is clicked, we display to the user a URL to the
+	//  current page with the current expression in its query string.
 	$('#createLink').click (function () {
 		var exp = $('#equation').val();
 		$('#linkBox').blur (function () {
@@ -60,59 +68,58 @@ $('document').ready (function() {
 		$('#linkBox').select();
 	});
 	
-	var parsedExpression = null;
-
-	var graph = new InteractiveGraph ($('canvas.main'), 20);
-	graph.evaluatorProvider (function () {
-		if (!parsedExpression) {
-			return null;
-		}
-
-		var evalParam = evalConstants;
-		return function(x) {
-			if (!parsedExpression) {
-				return null;
-			}
-
-			try {
-				evalParam.x = x;
-				return parsedExpression.evaluate (evalParam);
-			} catch (e) {
-				reportError('Evaluation Error: ' + e.message);
-
-				// We'll unset the parsed expression now, because it's not really useful.
-				// That way, next time through we won't try to parse it at all.
-				parsedExpression = null;
-				return null;
-			}
-		}
-	})
-	
+	// Helper function for error reporting.
 	var reportError = function (err) {
 		if (!err) err = '';
 		$('.errorDisplay').text (err);
 	};
 
+	// The InteractiveGraph instance that we will use.
+	var graph = new InteractiveGraph ($('canvas.main'), 20);
+
+	// The "Reset View" button calls the appropriate method on the graph object.
 	$('#resetView').click (graph.resetView);
+
+	// The "Graph" button is a proxy to submitting the form.
 	$('#graphCurrentEquation').click (function () {
 		$('form.equation').submit();
 	});
+
+	// Submitting the form will parse the current expression and draw it on the graph.
 	$('form.equation').submit (function () {
 		try {
 			reportError('');
 
 			var exp = $('#equation').val();
 			var parser = new Parser();
-			parsedExpression = parser.parse (exp);
+			var parsedExpression = parser.parse (exp);
+
+			if (!parsedExpression) {
+				throw new Error ('The parser library is misbehaving.');
+			}
+
+			var evalParam = evalConstants;
+			graph.setEvaluator (function (x) {
+				try {
+					evalParam.x = x;
+					return parsedExpression.evaluate (evalParam);
+				} catch (e) {
+					reportError('Evaluation Error: ' + e.message);
+
+					// Return null, thereby aborting the current draw cycle.
+					return null;
+				}
+			})
 		} catch (e) {
 			reportError ('Parse Error: ' + e.message);
-			parsedExpression = null;
+			graph.setEvaluator (null);
 		}
-
-		graph.redraw();
 
 		return false;
 	}).submit();
+
+	// Lastly, select the equation so that if the user immediately starts typing, it will
+	//  begin to overwrite the current expression in the input.
 	$('#equation').select();
 });
 

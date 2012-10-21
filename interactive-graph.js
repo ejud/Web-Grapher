@@ -1,18 +1,27 @@
+
+// Acts as an interactive view for a graph, taking a canvas element and
+//  an "initial size", representing the size for the bounding box's height
+//  or width, whichever is smaller in the current aspect ratio.
+//
+// The coordinates on the Cartesian plane are proportional to the pixels
+//  on the canvas element.
+//
+// Currently, whenever the window is resized or the viewable area is otherwise
+//  changed, the drawing routine is executed again. Nothing is cached.
 function InteractiveGraph (elem, initialSize) {
 	var canvas = $(elem);
 	var vBounds = null;
 	var lastMousePoint = null;
 	
-	var makePt = function (x, y) { return { x: x, y: y }; };
-	
-	var deprojectPoint = function (p) {
-		if (!vBounds) return null;
+	// Creates a point.
+	var makePt = function (x, y) {
 		return {
-			x: (p.x * vBounds.width() / canvas.attr('width')) + vBounds.left,
-			y: vBounds.height() * (1.0 - (p.y / canvas.attr('height'))) + vBounds.bottom
+			x: x,
+			y: y
 		};
 	};
-	
+
+	// Projects a point from graph coordinates to canvas coordinates.
 	var projectPoint = function (p) {
 		if (!vBounds) return null;
 		return {
@@ -21,13 +30,25 @@ function InteractiveGraph (elem, initialSize) {
 		};
 	};
 
-	var evaluatorProvider = null;
-	this.evaluatorProvider = function(provider) {
-		if (provider !== undefined) {
-			evaluatorProvider = provider;
-		}
+	// Deprojects a point from canvas coordinates back to graph coordinates.
+	var deprojectPoint = function (p) {
+		if (!vBounds) return null;
+		return {
+			x: (p.x * vBounds.width() / canvas.attr('width')) + vBounds.left,
+			y: vBounds.height() * (1.0 - (p.y / canvas.attr('height'))) + vBounds.bottom
+		};
 	};
 	
+	// The evaluator is of the form f(x) and returns y-values.
+	// If the evaluator is null, nothing is graphed.
+	// If the evaluator returns null, The current draw cycle is aborted.
+	var evaluator = null;
+	this.setEvaluator = function (f) {
+		evaluator = f;
+		draw();
+	}
+	
+	// Draws the graph.
 	var draw = function() {
 		var context = canvas[0].getContext('2d');
 		
@@ -113,9 +134,6 @@ function InteractiveGraph (elem, initialSize) {
 		context.stroke();
 		context.closePath();
 		
-		if (!evaluatorProvider) return;
-		var evaluator = evaluatorProvider();
-
 		if (!evaluator) return;
 		
 		// Graph itself
@@ -173,10 +191,6 @@ function InteractiveGraph (elem, initialSize) {
 		}
 	};
 
-	this.redraw = function() {
-		draw();
-	}
-
 	var setBounds = function (top, bottom, left, right) {
 		vBounds = {
 			top: top,
@@ -188,6 +202,8 @@ function InteractiveGraph (elem, initialSize) {
 		};
 	};
 	
+	// We bind directly to the window resize events here, so that we can reposition and redraw
+	//  the graph as necessary.
 	$(window).resize (function (e) {
 		var w = canvas.width();
 		var h = canvas.height();
@@ -211,11 +227,13 @@ function InteractiveGraph (elem, initialSize) {
 	});
 	$(window).resize();
 	
+	// Resets the view back to the initial size specified in construction.
 	this.resetView = function() {
 		vBounds = null;
 		$(window).resize();
 	};
 	
+	// Mouse events
 	canvas.mousemove (function (e) {
 		lastMousePoint = makePt (e.offsetX, e.offsetY);
 		draw();
