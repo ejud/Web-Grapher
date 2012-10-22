@@ -13,11 +13,6 @@
 
 <script type="text/javascript">
 
-// Additional constants that will be passed to the parser.
-var evalConstants = {
-	e: 2.71828183
-};
-
 // Retrieves name/value pairs from the query string in the URL
 function getUrlVars() {
 	var vars = [], hash;
@@ -98,11 +93,10 @@ $('document').ready (function() {
 				throw new Error ('The parser library is misbehaving.');
 			}
 
-			var evalParam = evalConstants;
 			graph.setEvaluator (function (x) {
 				try {
-					evalParam.x = x;
-					return parsedExpression.evaluate (evalParam);
+					var param = { 'x': x };
+					return parsedExpression.evaluate (param);
 				} catch (e) {
 					reportError('Evaluation Error: ' + e.message);
 
